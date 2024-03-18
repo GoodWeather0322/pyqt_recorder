@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "pyqt-recorder"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+packages = [{include = "pyqt_recorder"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pyaudio = "^0.2.14"
+pyqt6 = "^6.6.1"
+
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^3.6.2"
+commitizen = "^3.18.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
