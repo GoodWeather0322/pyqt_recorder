@@ -19,7 +19,7 @@ commitizen = "^3.18.4"
 
 
 [tool.commitizen]
-name = "cz_conventional_commits"
+name = "cz_gitmoji"
 tag_format = "$version"
 version_scheme = "pep440"
 version_provider = "poetry"
