@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyqt-recorder"
-version = "0.1.0"
+version = "0.3.0"
 description = ""
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
@@ -16,6 +16,14 @@ pyqt6 = "^6.6.1"
 pre-commit = "^3.6.2"
 commitizen = "^3.18.4"
 
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "$version"
+version_scheme = "pep440"
+version_provider = "poetry"
+update_changelog_on_bump = true
+major_version_zero = true
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
