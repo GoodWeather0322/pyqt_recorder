@@ -1,5 +1,4 @@
-clean
-clean1
+prepare_record
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
