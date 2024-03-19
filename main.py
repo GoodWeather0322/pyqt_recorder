@@ -10,7 +10,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtMultimedia import QMediaDevices
 
-import asyncio
+import threading
+import multiprocessing
 import sys
 from pathlib import Path
 import pyaudio
@@ -240,8 +241,22 @@ class Recorder(QMainWindow):
             )
         else:
             self.selectedAudioDataLabel.setText("No data available or not loaded.")
+    
+    def create_input_stream(self, inputIndex, deviceIndex):
+        CHUNK = 1024
+        FORMAT = pyaudio.paInt16
+        CHANNELS = 1
+        RATE = 44100
+        # p = pyaudio.PyAudio()
+        stream = self.p.open(
+            format=FORMAT,
+            channels=CHANNELS,
+            rate=RATE,
+            input=True,
+            input_device_index=deviceIndex,
+            frames_per_buffer=CHUNK,
+        )
 
-    def record_audio(self, stream):
         frames = []
         while True:
             data = stream.read(1024 * 8)
@@ -251,88 +266,63 @@ class Recorder(QMainWindow):
                 print("detect STOP")
                 break
 
-        return frames
-
-    async def multi_input_streams(self, deviceIndexes):
-        CHUNK = 1024
-        FORMAT = pyaudio.paInt16
-        CHANNELS = 1
-        RATE = 44100
-        # p = pyaudio.PyAudio()
-        streams = []
-        for deviceIndex in deviceIndexes:
-            stream = self.p.open(
-                format=FORMAT,
-                channels=CHANNELS,
-                rate=RATE,
-                input=True,
-                input_device_index=deviceIndex,
-                frames_per_buffer=CHUNK,
-            )
-            streams.append(stream)
-
-        tasks = []
-        for stream in streams:
-            tasks.append(asyncio.to_thread(self.record_audio, stream))
-        results = await asyncio.gather(*tasks)
-        for i, frames in enumerate(results):
-            wave_file = wave.open(f"prepare_record\\clean\\test{i}.wav", "wb")
-            wave_file.setnchannels(CHANNELS)
-            wave_file.setsampwidth(self.p.get_sample_size(FORMAT))
-            wave_file.setframerate(RATE)
-            wave_file.writeframes(b"".join(frames))
-            wave_file.close()
+        wave_file = wave.open(f"prepare_record\\clean\\test{inputIndex}.wav", "wb")
+        wave_file.setnchannels(CHANNELS)
+        wave_file.setsampwidth(self.p.get_sample_size(FORMAT))
+        wave_file.setframerate(RATE)
+        wave_file.writeframes(b"".join(frames))
+        wave_file.close()
 
         # 錄音完成後關閉所有輸入流
-        for stream in streams:
-            stream.stop_stream()
-            stream.close()
-
-        # p.terminate()
-        return results
-
-    def play_audio(self, stream, audio_data):
-        stream.write(audio_data)
         stream.stop_stream()
         stream.close()
-        return True
+        # p.terminate()
+        return f'record success {inputIndex}'
 
-    async def multi_output_streams(self, deviceIndexs, wavPath):
+    def create_output_stream(self, outputIndex, deviceIndex, wavPath):
         # p = pyaudio.PyAudio()
+        print(outputIndex)
         wf = wave.open(wavPath, "rb")
         audio_data = wf.readframes(wf.getnframes())
 
-        streams = []
-        print(pyaudio.paInt16)
-        print(self.p.get_format_from_width(wf.getsampwidth()))
-        for deviceIndex in deviceIndexs:
-            stream = self.p.open(
-                format=self.p.get_format_from_width(wf.getsampwidth()),
-                channels=wf.getnchannels(),
-                rate=wf.getframerate(),
-                output=True,
-                output_device_index=deviceIndex,
-            )
-            streams.append(stream)
+        stream = self.p.open(
+            format=self.p.get_format_from_width(wf.getsampwidth()),
+            channels=wf.getnchannels(),
+            rate=wf.getframerate(),
+            output=True,
+            output_device_index=deviceIndex,
+        )
 
-        tasks = []
-        for stream in streams:
-            tasks.append(asyncio.to_thread(self.play_audio, stream, audio_data))
-        results = await asyncio.gather(*tasks)
-        self.STOP = True
-        # p.terminate()
-        return results
+        stream.write(audio_data)
+        stream.stop_stream()
+        stream.close()
 
-    async def start_record_and_playback(self, inputDevices, outputDevices, wavPath):
+        return f'plat audio success {outputIndex}'
+
+    def start_record_and_playback(self, inputDevices, outputDevices, wavPath):
 
         self.STOP = False
         self.p = pyaudio.PyAudio()
 
-        recording_task = asyncio.create_task(self.multi_input_streams(inputDevices))
-        playback_task = asyncio.create_task(
-            self.multi_output_streams(outputDevices, wavPath)
-        )
-        await asyncio.gather(recording_task, playback_task)
+        record_tasks = []
+        # for i, inputDevice in enumerate(inputDevices):
+        #     recording_thread = threading.Thread(target=self.create_input_stream, args=(i, inputDevice,))
+        #     record_tasks.append(recording_thread)
+        # for task in record_tasks:
+        #     task.start()
+
+        
+        playaudio_tasks = []
+        for i, outputDevice in enumerate(outputDevices):
+            playaudio_thread = threading.Thread(target=self.create_output_stream, args=(i, outputDevice, wavPath))
+            playaudio_tasks.append(playaudio_thread)
+
+        for task in playaudio_tasks:
+            task.start()
+        for task in playaudio_tasks:
+            task.join()
+
+        ##-------------------------
         self.p.terminate()
 
     def playSelectedWav(self):
@@ -349,13 +339,13 @@ class Recorder(QMainWindow):
         outputDevices = []
         deviceName = self.comboOutputDevices.currentText()
         outputDevices.append(self.deviceName2index[deviceName])
-        # outputDevices.append(5)
+        outputDevices.append(5)
+        outputDevices.append(5)
+        outputDevices.append(5)
 
         text = self.selectedAudioDataLabel.text()
         wavPath = text.split(" ")[4]  # 擷取WAV路徑
-        results = asyncio.run(
-            self.start_record_and_playback(inputDevices, outputDevices, wavPath)
-        )
+        self.start_record_and_playback(inputDevices, outputDevices, wavPath)
 
     def playAllAudio(self):
         """
@@ -378,7 +368,6 @@ class Recorder(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    print(123)
     recorder = Recorder()
     recorder.show()
 
