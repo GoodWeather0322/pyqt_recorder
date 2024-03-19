@@ -1,3 +1,1 @@
 import pyaudio
-addaa
-qwff
